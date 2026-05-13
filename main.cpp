@@ -374,3 +374,8 @@ int main() {
     save_svg(s, "toto.svg");
     return 0;
 }
+
+
+
+
+// beginning of lab 6 : Fluid template : May 13th, 2026
