@@ -59,14 +59,14 @@ public:
 
     double area() {
         if (vertices.size() < 3) return 0;
-        // TODO Lab 3
+        // TODO Lab 2
         // Compute the area of the polygon
         return -111;
     }
 
     Vector centroid() {
         if (vertices.size() < 3) return Vector(0, 0);
-        // TODO Lab 3
+        // TODO Lab 2
         // Compute the centroid of the polygon
 
         return Vector(-111,-111);
@@ -75,7 +75,7 @@ public:
     double integral_square_distance(const Vector& Pi) {
         if (vertices.size() < 3) return 0;
 
-        // TODO Lab 3
+        // TODO Lab 2
         // Compute the integral of ||x-Pi||^2 over the polygon
 
         return -111;
@@ -193,6 +193,32 @@ public:
         //      For all other sites Pj (optionally, only k nearest neighbors) :
         //          Clip it with bisector of [Pi,Pj]
         //      (Lab 3, fluids) : also clip it by a disk of radius sqrt(w_i - w_air) centered at Pi
+
+        cells.clear();
+        cells.resize(points.size());
+
+    #pragma omp parallel for schedule(dynamic)
+        for (int i = 0; i < (int)points.size(); i++) {
+
+            Polygon cell;
+
+            cell.vertices.push_back(Vector(0, 0));
+            cell.vertices.push_back(Vector(1, 0));
+            cell.vertices.push_back(Vector(1, 1));
+            cell.vertices.push_back(Vector(0, 1));
+
+            Vector Pi = points[i];
+
+            for (int j = 0; j < (int)points.size(); j++) {
+                if (i == j) continue;
+
+                cell = clip_by_bisector(cell, Pi, points[j], 0.0, 0.0);
+
+                if (cell.vertices.size() == 0) break;
+            }
+
+            cells[i] = cell;
+        }
     }
 
 
@@ -215,7 +241,39 @@ public:
         // TODO Lab 2 (Semi-Discrete Optimal Transport) : extend to Laguerre cells, i.e., w0 != w1
 
         Polygon result;
-
+        if (V.vertices.size() == 0) return result;
+        Vector dir = Pi - P0;
+        double limite = Pi.norm2() - P0.norm2() + w0 - wi;
+        auto inside = [&](const Vector& X) {
+            double val = 2.0 * dot(X, dir) - limite;
+            return val <= 1e-12;
+        };
+        auto valeur = [&](const Vector& X) {
+            return 2.0 * dot(X, dir) - limite;
+        };
+        int n = (int)V.vertices.size();
+        for (int i = 0; i < n; i++) {
+            Vector A = V.vertices[i];
+            Vector B = V.vertices[(i + 1) % n];
+            bool A_in = inside(A);
+            bool B_in = inside(B);
+            double vA = valeur(A);
+            double vB = valeur(B);
+            if (A_in && B_in) {
+                result.vertices.push_back(B);
+            }
+            else if (A_in && !B_in) {
+                double t = vA / (vA - vB);
+                Vector inter = A + t * (B - A);
+                result.vertices.push_back(inter);
+            }
+            else if (!A_in && B_in) {
+                double t = vA / (vA - vB);
+                Vector inter = A + t * (B - A);
+                result.vertices.push_back(inter);
+                result.vertices.push_back(B);
+            }
+        }
         return result;
     }
 
@@ -361,7 +419,7 @@ void save_svg(const std::vector<Polygon>& polygons, std::string filename, std::s
 
 int main() {
 
-    Polygon p;
+    /*Polygon p;
     p.vertices.push_back(Vector(0.1, 0.2));
     p.vertices.push_back(Vector(0.6, 0.4));
     p.vertices.push_back(Vector(0.5, 0.7));
@@ -372,7 +430,29 @@ int main() {
 
     save_frame(s, "toto");
     save_svg(s, "toto.svg");
+    return 0*/
+
+    VoronoiDiagram vor;
+    const int nb_points = 60;
+    vor.points.reserve(nb_points);
+    srand(12);
+    for (int k = 0; k < nb_points; k++) {
+        double rx = rand() / (double)RAND_MAX;
+        double ry = rand() / (double)RAND_MAX;
+        Vector p(rx, ry);
+        vor.points.push_back(p);
+    }
+    vor.compute();
+    save_svg(vor.cells, "diagramme_voronoi.svg", "none");
+    save_frame(vor.cells, "diagramme_voronoi");
+    std::cout << "Voronoi generated with "
+              << vor.points.size()
+              << " points and "
+              << vor.cells.size()
+              << " cells."
+              << std::endl;
     return 0;
+
 }
 
 
